@@ -34,3 +34,4 @@ ash_json_api_wrapper-*.tar
 
 # VSCode settings
 .vscode/*
+.elixir_ls/*
