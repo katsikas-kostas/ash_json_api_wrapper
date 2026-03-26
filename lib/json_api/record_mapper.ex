@@ -13,9 +13,9 @@ defmodule AshJsonApiWrapper.JsonApi.RecordMapper do
     resource
     |> Ash.Resource.Info.attributes()
     |> Enum.reduce(%{}, fn attr, acc ->
-      case Map.get(item, to_string(attr.name)) do
-        nil -> acc
-        value -> Map.put(acc, attr.name, value)
+      case Map.fetch(item, to_string(attr.name)) do
+        {:ok, value} -> Map.put(acc, attr.name, value)
+        :error -> acc
       end
     end)
     |> then(&struct(resource, &1))

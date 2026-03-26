@@ -14,6 +14,7 @@ defmodule AshJsonApiWrapper.JsonApiTest do
     attributes do
       uuid_primary_key :id
       attribute :name, :string, public?: true
+      attribute :email, :string, public?: true
     end
 
     actions do
@@ -21,12 +22,12 @@ defmodule AshJsonApiWrapper.JsonApiTest do
 
       create :create do
         primary? true
-        accept [:name]
+        accept [:name, :email]
       end
 
       update :update do
         primary? true
-        accept [:name]
+        accept [:name, :email]
       end
 
       destroy :destroy do
@@ -158,6 +159,10 @@ defmodule AshJsonApiWrapper.JsonApiTest do
       Req.Test.stub(User, fn conn ->
         assert conn.request_path == "/v1/users"
         assert conn.method == "POST"
+
+        [content_type] = Plug.Conn.get_req_header(conn, "content-type")
+        assert content_type =~ "application/json"
+
         {:ok, body, _conn} = Plug.Conn.read_body(conn)
         attrs = Jason.decode!(body)
         assert attrs["name"] == "Alice"
@@ -207,6 +212,30 @@ defmodule AshJsonApiWrapper.JsonApiTest do
       assert_received :patch_received
       assert updated.id == id
       assert updated.name == "Bob"
+    end
+
+    test "only sends changed attributes in request body" do
+      id = Ash.UUID.generate()
+
+      Req.Test.stub(User, fn conn ->
+        case conn.method do
+          "GET" ->
+            Req.Test.json(conn, %{"id" => id, "name" => "Alice", "email" => "alice@example.com"})
+
+          "PATCH" ->
+            {:ok, body, _conn} = Plug.Conn.read_body(conn)
+            attrs = Jason.decode!(body)
+            assert Map.has_key?(attrs, "name")
+            refute Map.has_key?(attrs, "email")
+
+            Req.Test.json(conn, %{"id" => id, "name" => "Bob", "email" => "alice@example.com"})
+        end
+      end)
+
+      {:ok, user} = Ash.get(User, id)
+      assert {:ok, updated} = Ash.update(user, %{name: "Bob"})
+      assert updated.name == "Bob"
+      assert updated.email == "alice@example.com"
     end
 
     test "non-2xx response returns an error" do
