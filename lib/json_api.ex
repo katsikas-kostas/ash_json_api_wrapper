@@ -16,8 +16,11 @@ defmodule AshJsonApiWrapper.JsonApi do
           resource_path "/users"
           entity_path "data"           # extract from nested response
           case_convention :camel_case  # auto-convert camelCase → snake_case
+          auth MyApp.ApiAuth           # inject credentials before each request
 
           field :name, path: "profile.display_name"  # map nested field
+
+          action :search, path: "/users/search", method: :post  # override endpoint
         end
 
         attributes do
@@ -55,10 +58,33 @@ defmodule AshJsonApiWrapper.JsonApi do
     args: [:name]
   }
 
+  @action_override %Spark.Dsl.Entity{
+    name: :action,
+    target: AshJsonApiWrapper.JsonApi.ActionOverride,
+    schema: [
+      name: [
+        type: :atom,
+        required: true,
+        doc: "The Ash action name to override."
+      ],
+      path: [
+        type: :string,
+        required: false,
+        doc: "Overrides the resource path for this action (e.g., \"/users/search\"). Supports `:id` template."
+      ],
+      method: [
+        type: {:in, [:get, :post, :patch, :put, :delete]},
+        required: false,
+        doc: "Overrides the HTTP method for this action."
+      ]
+    ],
+    args: [:name]
+  }
+
   @json_api %Spark.Dsl.Section{
     name: :json_api,
     describe: "Configure a JSON API-backed resource.",
-    entities: [@field],
+    entities: [@field, @action_override],
     schema: [
       base_url: [
         type: :string,
@@ -85,6 +111,23 @@ defmodule AshJsonApiWrapper.JsonApi do
         required: false,
         default: "sort",
         doc: "The query parameter name used for sorting (default: \"sort\")."
+      ],
+      auth: [
+        type: :atom,
+        required: false,
+        doc: "Module implementing `AshJsonApiWrapper.JsonApi.Auth` for credential injection."
+      ],
+      before_request: [
+        type: {:list, :any},
+        required: false,
+        default: [],
+        doc: "List of MFA tuples or 1-arity functions called before each request with the Req options."
+      ],
+      after_response: [
+        type: {:list, :any},
+        required: false,
+        default: [],
+        doc: "List of MFA tuples or 1-arity functions called after each response with the response body."
       ]
     ]
   }

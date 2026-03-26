@@ -14,7 +14,13 @@ defmodule AshJsonApiWrapper.JsonApi.Transformers.WireManualActions do
     entity_path = Spark.Dsl.Extension.get_opt(dsl_state, [:json_api], :entity_path)
     case_convention = Spark.Dsl.Extension.get_opt(dsl_state, [:json_api], :case_convention)
     sort_param = Spark.Dsl.Extension.get_opt(dsl_state, [:json_api], :sort_param)
-    field_mappings = Spark.Dsl.Transformer.get_entities(dsl_state, [:json_api])
+    auth = Spark.Dsl.Extension.get_opt(dsl_state, [:json_api], :auth)
+    before_request = Spark.Dsl.Extension.get_opt(dsl_state, [:json_api], :before_request)
+    after_response = Spark.Dsl.Extension.get_opt(dsl_state, [:json_api], :after_response)
+
+    all_entities = Spark.Dsl.Transformer.get_entities(dsl_state, [:json_api])
+    field_mappings = Enum.filter(all_entities, &is_struct(&1, AshJsonApiWrapper.JsonApi.FieldMapping))
+    action_overrides = Enum.filter(all_entities, &is_struct(&1, AshJsonApiWrapper.JsonApi.ActionOverride))
 
     opts = [
       base_url: base_url,
@@ -22,7 +28,11 @@ defmodule AshJsonApiWrapper.JsonApi.Transformers.WireManualActions do
       entity_path: entity_path,
       case_convention: case_convention,
       sort_param: sort_param || "sort",
-      field_mappings: field_mappings
+      field_mappings: field_mappings,
+      action_overrides: action_overrides,
+      auth: auth,
+      before_request: before_request || [],
+      after_response: after_response || []
     ]
 
     actions = Spark.Dsl.Transformer.get_entities(dsl_state, [:actions])

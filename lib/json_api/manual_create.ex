@@ -15,7 +15,7 @@ defmodule AshJsonApiWrapper.JsonApi.ManualCreate do
     url = base_url <> resource_path
     attrs = changeset.attributes
 
-    case AshJsonApiWrapper.JsonApi.Client.post(url, attrs, resource) do
+    case AshJsonApiWrapper.JsonApi.Client.post(url, attrs, resource, opts) do
       {:ok, body} ->
         entity = ResponseMapper.extract_entity(body, opts[:entity_path])
         {:ok, ResponseMapper.to_record(entity, resource, opts)}

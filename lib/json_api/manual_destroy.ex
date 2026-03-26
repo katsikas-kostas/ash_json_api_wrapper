@@ -16,7 +16,7 @@ defmodule AshJsonApiWrapper.JsonApi.ManualDestroy do
 
     url = base_url <> resource_path <> "/#{id}"
 
-    case AshJsonApiWrapper.JsonApi.Client.delete(url, resource) do
+    case AshJsonApiWrapper.JsonApi.Client.delete(url, resource, opts) do
       :ok ->
         {:ok, record}
 

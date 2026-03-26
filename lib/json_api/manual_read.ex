@@ -13,14 +13,19 @@ defmodule AshJsonApiWrapper.JsonApi.ManualRead do
     resource = query.resource
 
     field_mappings = opts[:field_mappings] || []
+    action_overrides = opts[:action_overrides] || []
+    override = find_override(action_overrides, query.action.name)
+
     {filter_params, runtime_filters} = FilterMapper.extract(query, field_mappings)
     sort_params = SortMapper.extract(query, opts[:sort_param] || "sort")
 
     query_params = Map.merge(filter_params, sort_params)
-    url = build_url(base_url, resource_path, query, query_params)
+    url = build_url(base_url, resource_path, query, query_params, override)
 
+    method = override && override.method || :get
+    result = dispatch(method, url, query_params, resource, opts)
 
-    case AshJsonApiWrapper.JsonApi.Client.get(url, resource) do
+    case result do
       {:ok, body} ->
         entities = ResponseMapper.extract_entities(body, opts[:entity_path])
         records = ResponseMapper.to_records(entities, resource, opts)
@@ -37,19 +42,43 @@ defmodule AshJsonApiWrapper.JsonApi.ManualRead do
     end
   end
 
-  defp build_url(base_url, resource_path, query, filter_params \\ %{}) do
+  defp dispatch(:get, url, _query_params, resource, opts) do
+    AshJsonApiWrapper.JsonApi.Client.get(url, resource, opts)
+  end
+
+  defp dispatch(:post, url, query_params, resource, opts) do
+    AshJsonApiWrapper.JsonApi.Client.post(url, query_params, resource, opts)
+  end
+
+  defp build_url(base_url, resource_path, query, filter_params, override) do
+    path = (override && override.path) || resource_path
+    id = get_id_filter(query)
+
     base =
-      case get_id_filter(query) do
-        nil -> base_url <> resource_path
-        id -> base_url <> resource_path <> "/#{id}"
+      cond do
+        # path template already contains :id
+        id && String.contains?(path, ":id") ->
+          base_url <> String.replace(path, ":id", to_string(id))
+
+        id ->
+          base_url <> path <> "/#{id}"
+
+        true ->
+          base_url <> path
       end
 
-    if map_size(filter_params) == 0 do
-      base
+    method = override && override.method || :get
+
+    # For non-GET overrides, query params go in body; don't append to URL
+    if method == :get && map_size(filter_params) > 0 do
+      base <> "?" <> URI.encode_query(filter_params)
     else
-      query_string = URI.encode_query(filter_params)
-      base <> "?" <> query_string
+      base
     end
+  end
+
+  defp find_override(overrides, action_name) do
+    Enum.find(overrides, &(&1.name == action_name))
   end
 
   defp get_id_filter(%{filter: %Ash.Filter{expression: expression}}) do
@@ -74,5 +103,4 @@ defmodule AshJsonApiWrapper.JsonApi.ManualRead do
   end
 
   defp extract_id(_), do: nil
-
 end
