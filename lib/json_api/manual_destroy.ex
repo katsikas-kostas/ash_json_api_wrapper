@@ -4,6 +4,8 @@ defmodule AshJsonApiWrapper.JsonApi.ManualDestroy do
   """
   use Ash.Resource.ManualDestroy
 
+  alias AshJsonApiWrapper.JsonApi.ErrorMapper
+
   @impl true
   def destroy(changeset, opts, _context) do
     base_url = opts[:base_url]
@@ -19,7 +21,7 @@ defmodule AshJsonApiWrapper.JsonApi.ManualDestroy do
         {:ok, record}
 
       {:error, {:http_error, status, body}} ->
-        {:error, "HTTP #{status}: #{inspect(body)}"}
+        {:error, ErrorMapper.to_error(status, body)}
 
       {:error, reason} ->
         {:error, reason}
