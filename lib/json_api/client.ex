@@ -21,6 +21,31 @@ defmodule AshJsonApiWrapper.JsonApi.Client do
     |> handle_response()
   end
 
+  def post(url, body, resource) do
+    [url: url, retry: false, json: body]
+    |> put_test_plug(resource)
+    |> Req.post()
+    |> handle_response()
+  end
+
+  def patch(url, body, resource) do
+    [url: url, retry: false, json: body]
+    |> put_test_plug(resource)
+    |> Req.patch()
+    |> handle_response()
+  end
+
+  def delete(url, resource) do
+    [url: url, retry: false]
+    |> put_test_plug(resource)
+    |> Req.delete()
+    |> handle_response()
+    |> case do
+      {:ok, _body} -> :ok
+      error -> error
+    end
+  end
+
   defp put_test_plug(opts, resource) do
     case Application.get_env(:ash_json_api_wrapper, :req_test_plug) do
       nil -> opts

@@ -14,10 +14,25 @@ defmodule AshJsonApiWrapper.JsonApiTest do
     attributes do
       uuid_primary_key :id
       attribute :name, :string, public?: true
+      attribute :email, :string, public?: true
     end
 
     actions do
       defaults [:read]
+
+      create :create do
+        primary? true
+        accept [:name, :email]
+      end
+
+      update :update do
+        primary? true
+        accept [:name, :email]
+      end
+
+      destroy :destroy do
+        primary? true
+      end
     end
   end
 
@@ -134,6 +149,171 @@ defmodule AshJsonApiWrapper.JsonApiTest do
 
       assert {:error, %Ash.Error.Invalid{errors: [%Ash.Error.Query.NotFound{}]}} =
                Ash.get(User, Ash.UUID.generate())
+    end
+  end
+
+  describe "create" do
+    test "sends POST to base_url/resource_path with attributes and returns created record" do
+      id = Ash.UUID.generate()
+
+      Req.Test.stub(User, fn conn ->
+        assert conn.request_path == "/v1/users"
+        assert conn.method == "POST"
+
+        [content_type] = Plug.Conn.get_req_header(conn, "content-type")
+        assert content_type =~ "application/json"
+
+        {:ok, body, _conn} = Plug.Conn.read_body(conn)
+        attrs = Jason.decode!(body)
+        assert attrs["name"] == "Alice"
+
+        Req.Test.json(conn, %{"id" => id, "name" => "Alice"})
+      end)
+
+      assert {:ok, user} = Ash.create(User, %{name: "Alice"})
+      assert user.id == id
+      assert user.name == "Alice"
+    end
+
+    test "non-2xx response returns an error" do
+      Req.Test.stub(User, fn conn ->
+        conn
+        |> Plug.Conn.put_resp_content_type("application/json")
+        |> Plug.Conn.send_resp(422, Jason.encode!(%{"error" => "Validation failed"}))
+      end)
+
+      assert {:error, %Ash.Error.Invalid{}} = Ash.create(User, %{name: "Alice"})
+    end
+  end
+
+  describe "update" do
+    test "sends PATCH to base_url/resource_path/:id with changed attributes" do
+      id = Ash.UUID.generate()
+      test_pid = self()
+
+      Req.Test.stub(User, fn conn ->
+        case conn.method do
+          "GET" ->
+            Req.Test.json(conn, %{"id" => id, "name" => "Alice"})
+
+          "PATCH" ->
+            send(test_pid, :patch_received)
+            assert conn.request_path == "/v1/users/#{id}"
+            {:ok, body, _conn} = Plug.Conn.read_body(conn)
+            attrs = Jason.decode!(body)
+            assert attrs["name"] == "Bob"
+
+            Req.Test.json(conn, %{"id" => id, "name" => "Bob"})
+        end
+      end)
+
+      {:ok, user} = Ash.get(User, id)
+      assert {:ok, updated} = Ash.update(user, %{name: "Bob"})
+      assert_received :patch_received
+      assert updated.id == id
+      assert updated.name == "Bob"
+    end
+
+    test "only sends changed attributes in request body" do
+      id = Ash.UUID.generate()
+
+      Req.Test.stub(User, fn conn ->
+        case conn.method do
+          "GET" ->
+            Req.Test.json(conn, %{"id" => id, "name" => "Alice", "email" => "alice@example.com"})
+
+          "PATCH" ->
+            {:ok, body, _conn} = Plug.Conn.read_body(conn)
+            attrs = Jason.decode!(body)
+            assert Map.has_key?(attrs, "name")
+            refute Map.has_key?(attrs, "email")
+
+            Req.Test.json(conn, %{"id" => id, "name" => "Bob", "email" => "alice@example.com"})
+        end
+      end)
+
+      {:ok, user} = Ash.get(User, id)
+      assert {:ok, updated} = Ash.update(user, %{name: "Bob"})
+      assert updated.name == "Bob"
+      assert updated.email == "alice@example.com"
+    end
+
+    test "non-2xx response returns an error" do
+      id = Ash.UUID.generate()
+
+      Req.Test.stub(User, fn conn ->
+        case conn.method do
+          "GET" ->
+            Req.Test.json(conn, %{"id" => id, "name" => "Alice"})
+
+          "PATCH" ->
+            conn
+            |> Plug.Conn.put_resp_content_type("application/json")
+            |> Plug.Conn.send_resp(422, Jason.encode!(%{"error" => "Validation failed"}))
+        end
+      end)
+
+      {:ok, user} = Ash.get(User, id)
+      assert {:error, %Ash.Error.Invalid{}} = Ash.update(user, %{name: "Bob"})
+    end
+  end
+
+  describe "destroy" do
+    test "sends DELETE to base_url/resource_path/:id and returns :ok" do
+      id = Ash.UUID.generate()
+      test_pid = self()
+
+      Req.Test.stub(User, fn conn ->
+        case conn.method do
+          "GET" ->
+            Req.Test.json(conn, %{"id" => id, "name" => "Alice"})
+
+          "DELETE" ->
+            send(test_pid, :delete_received)
+            assert conn.request_path == "/v1/users/#{id}"
+            Plug.Conn.send_resp(conn, 204, "")
+        end
+      end)
+
+      {:ok, user} = Ash.get(User, id)
+      assert :ok = Ash.destroy(user)
+      assert_received :delete_received
+    end
+
+    test "200 response is treated as success" do
+      id = Ash.UUID.generate()
+
+      Req.Test.stub(User, fn conn ->
+        case conn.method do
+          "GET" ->
+            Req.Test.json(conn, %{"id" => id, "name" => "Alice"})
+
+          "DELETE" ->
+            Req.Test.json(conn, %{"id" => id, "name" => "Alice"})
+        end
+      end)
+
+      {:ok, user} = Ash.get(User, id)
+      assert :ok = Ash.destroy(user)
+    end
+
+    test "non-2xx response returns an error" do
+      id = Ash.UUID.generate()
+
+      Req.Test.stub(User, fn conn ->
+        case conn.method do
+          "GET" ->
+            Req.Test.json(conn, %{"id" => id, "name" => "Alice"})
+
+          "DELETE" ->
+            conn
+            |> Plug.Conn.put_resp_content_type("application/json")
+            |> Plug.Conn.send_resp(403, Jason.encode!(%{"error" => "Forbidden"}))
+        end
+      end)
+
+      {:ok, user} = Ash.get(User, id)
+      assert {:error, %Ash.Error.Invalid{}} = Ash.destroy(user)
     end
   end
 
