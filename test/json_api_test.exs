@@ -89,6 +89,29 @@ defmodule AshJsonApiWrapper.JsonApiTest do
         end
       end
     end
+
+    test "no read actions raises compile error" do
+      assert_raise Spark.Error.DslError, ~r/read action/, fn ->
+        defmodule NoReadActionsResource do
+          use Ash.Resource,
+            domain: AshJsonApiWrapper.JsonApiTest.Domain,
+            extensions: [AshJsonApiWrapper.JsonApi]
+
+          json_api do
+            base_url "https://api.example.com/v1"
+            resource_path "/users"
+          end
+
+          attributes do
+            uuid_primary_key :id
+          end
+
+          actions do
+            defaults []
+          end
+        end
+      end
+    end
   end
 
   describe "error handling" do
@@ -109,7 +132,8 @@ defmodule AshJsonApiWrapper.JsonApiTest do
         |> Plug.Conn.send_resp(404, Jason.encode!(%{"error" => "Not Found"}))
       end)
 
-      assert {:error, _} = Ash.get(User, Ash.UUID.generate())
+      assert {:error, %Ash.Error.Invalid{errors: [%Ash.Error.Query.NotFound{}]}} =
+               Ash.get(User, Ash.UUID.generate())
     end
   end
 

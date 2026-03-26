@@ -1,10 +1,17 @@
-defmodule AshJsonApiWrapper.Client do
+defmodule AshJsonApiWrapper.JsonApi.Client do
   @moduledoc """
   HTTP client wrapping Req for JSON API requests.
 
-  Supports `Req.Test` plug-based stubs for testing. Stubs are automatically
-  detected when registered via `Req.Test.stub/2` using the resource module
-  as the stub name.
+  In test environments, configure `Req.Test` stubs via application config:
+
+      # config/test.exs
+      config :ash_json_api_wrapper, req_test_plug: Req.Test
+
+  Then register per-resource stubs in your tests:
+
+      Req.Test.stub(MyResource, fn conn ->
+        Req.Test.json(conn, %{"id" => "1", "name" => "Alice"})
+      end)
   """
 
   def get(url, resource) do
@@ -14,12 +21,11 @@ defmodule AshJsonApiWrapper.Client do
     |> handle_response()
   end
 
-  if Mix.env() == :test do
-    defp put_test_plug(opts, resource) do
-      Keyword.put(opts, :plug, {Req.Test, resource})
+  defp put_test_plug(opts, resource) do
+    case Application.get_env(:ash_json_api_wrapper, :req_test_plug) do
+      nil -> opts
+      plug_mod -> Keyword.put(opts, :plug, {plug_mod, resource})
     end
-  else
-    defp put_test_plug(opts, _resource), do: opts
   end
 
   defp handle_response({:ok, %Req.Response{status: status, body: body}})
@@ -28,7 +34,7 @@ defmodule AshJsonApiWrapper.Client do
   end
 
   defp handle_response({:ok, %Req.Response{status: status, body: body}}) do
-    {:error, "HTTP #{status}: #{inspect(body)}"}
+    {:error, {:http_error, status, body}}
   end
 
   defp handle_response({:error, reason}) do

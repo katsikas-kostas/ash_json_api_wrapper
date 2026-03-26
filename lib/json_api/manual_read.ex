@@ -1,4 +1,4 @@
-defmodule AshJsonApiWrapper.ManualRead do
+defmodule AshJsonApiWrapper.JsonApi.ManualRead do
   @moduledoc """
   Implements `Ash.Resource.ManualRead` for JSON API-backed resources.
   """
@@ -12,10 +12,15 @@ defmodule AshJsonApiWrapper.ManualRead do
 
     url = build_url(base_url, resource_path, query)
 
-    case AshJsonApiWrapper.Client.get(url, resource) do
+    case AshJsonApiWrapper.JsonApi.Client.get(url, resource) do
       {:ok, body} ->
-        records = to_records(body, resource)
-        {:ok, records}
+        {:ok, to_records(body, resource)}
+
+      {:error, {:http_error, 404, _body}} ->
+        {:ok, []}
+
+      {:error, {:http_error, status, body}} ->
+        {:error, "HTTP #{status}: #{inspect(body)}"}
 
       {:error, reason} ->
         {:error, reason}
@@ -34,14 +39,6 @@ defmodule AshJsonApiWrapper.ManualRead do
   end
 
   defp get_id_filter(_), do: nil
-
-  defp extract_id(%Ash.Query.Operator.Eq{
-         left: %Ash.Query.Ref{attribute: %{name: :id}},
-         right: %Ash.Query.Function.Type{arguments: [%Ash.Query.Ref{attribute: %{name: :id}} | _]}
-       }) do
-    # This is the Ash.get pattern where the filter is: id == type(^id_value, ...)
-    nil
-  end
 
   defp extract_id(%Ash.Query.Operator.Eq{
          left: %Ash.Query.Ref{attribute: %{name: :id}},
