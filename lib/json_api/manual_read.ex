@@ -4,6 +4,8 @@ defmodule AshJsonApiWrapper.JsonApi.ManualRead do
   """
   use Ash.Resource.ManualRead
 
+  alias AshJsonApiWrapper.JsonApi.RecordMapper
+
   @impl true
   def read(query, _data_layer_query, opts, _context) do
     base_url = opts[:base_url]
@@ -14,7 +16,7 @@ defmodule AshJsonApiWrapper.JsonApi.ManualRead do
 
     case AshJsonApiWrapper.JsonApi.Client.get(url, resource) do
       {:ok, body} ->
-        {:ok, to_records(body, resource)}
+        {:ok, RecordMapper.to_records(body, resource)}
 
       {:error, {:http_error, 404, _body}} ->
         {:ok, []}
@@ -57,23 +59,4 @@ defmodule AshJsonApiWrapper.JsonApi.ManualRead do
 
   defp extract_id(_), do: nil
 
-  defp to_records(body, resource) when is_list(body) do
-    Enum.map(body, &to_record(&1, resource))
-  end
-
-  defp to_records(body, resource) when is_map(body) do
-    [to_record(body, resource)]
-  end
-
-  defp to_record(item, resource) do
-    resource
-    |> Ash.Resource.Info.attributes()
-    |> Enum.reduce(%{}, fn attr, acc ->
-      case Map.get(item, to_string(attr.name)) do
-        nil -> acc
-        value -> Map.put(acc, attr.name, value)
-      end
-    end)
-    |> then(&struct(resource, &1))
-  end
 end

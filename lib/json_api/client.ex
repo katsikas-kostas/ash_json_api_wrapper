@@ -21,6 +21,27 @@ defmodule AshJsonApiWrapper.JsonApi.Client do
     |> handle_response()
   end
 
+  def post(url, body, resource) do
+    [url: url, retry: false, json: body]
+    |> put_test_plug(resource)
+    |> Req.post()
+    |> handle_response()
+  end
+
+  def patch(url, body, resource) do
+    [url: url, retry: false, json: body]
+    |> put_test_plug(resource)
+    |> Req.patch()
+    |> handle_response()
+  end
+
+  def delete(url, resource) do
+    [url: url, retry: false]
+    |> put_test_plug(resource)
+    |> Req.delete()
+    |> handle_delete_response()
+  end
+
   defp put_test_plug(opts, resource) do
     case Application.get_env(:ash_json_api_wrapper, :req_test_plug) do
       nil -> opts
@@ -38,6 +59,19 @@ defmodule AshJsonApiWrapper.JsonApi.Client do
   end
 
   defp handle_response({:error, reason}) do
+    {:error, reason}
+  end
+
+  defp handle_delete_response({:ok, %Req.Response{status: status}})
+       when status in 200..299 do
+    :ok
+  end
+
+  defp handle_delete_response({:ok, %Req.Response{status: status, body: body}}) do
+    {:error, {:http_error, status, body}}
+  end
+
+  defp handle_delete_response({:error, reason}) do
     {:error, reason}
   end
 end
