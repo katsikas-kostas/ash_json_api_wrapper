@@ -65,4 +65,7 @@ defmodule AshJsonApiWrapper.JsonApi.Client do
   defp handle_response({:error, reason}) do
     {:error, reason}
   end
+
+  @doc false
+  def map_error(status, body), do: AshJsonApiWrapper.JsonApi.ErrorMapper.to_error(status, body)
 end

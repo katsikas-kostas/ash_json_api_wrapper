@@ -137,7 +137,7 @@ defmodule AshJsonApiWrapper.JsonApiTest do
         |> Plug.Conn.send_resp(500, Jason.encode!(%{"error" => "Internal Server Error"}))
       end)
 
-      assert {:error, %Ash.Error.Unknown{}} = Ash.read(User)
+      assert {:error, %Ash.Error.Framework{}} = Ash.read(User)
     end
 
     test "404 on get returns not found error" do
@@ -313,7 +313,7 @@ defmodule AshJsonApiWrapper.JsonApiTest do
       end)
 
       {:ok, user} = Ash.get(User, id)
-      assert {:error, %Ash.Error.Invalid{}} = Ash.destroy(user)
+      assert {:error, %Ash.Error.Forbidden{}} = Ash.destroy(user)
     end
   end
 

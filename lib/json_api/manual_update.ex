@@ -4,7 +4,7 @@ defmodule AshJsonApiWrapper.JsonApi.ManualUpdate do
   """
   use Ash.Resource.ManualUpdate
 
-  alias AshJsonApiWrapper.JsonApi.RecordMapper
+  alias AshJsonApiWrapper.JsonApi.{ErrorMapper, ResponseMapper}
 
   @impl true
   def update(changeset, opts, _context) do
@@ -18,10 +18,11 @@ defmodule AshJsonApiWrapper.JsonApi.ManualUpdate do
 
     case AshJsonApiWrapper.JsonApi.Client.patch(url, attrs, resource) do
       {:ok, body} ->
-        {:ok, RecordMapper.to_record(body, resource)}
+        entity = ResponseMapper.extract_entity(body, opts[:entity_path])
+        {:ok, ResponseMapper.to_record(entity, resource, opts)}
 
       {:error, {:http_error, status, body}} ->
-        {:error, "HTTP #{status}: #{inspect(body)}"}
+        {:error, ErrorMapper.to_error(status, body)}
 
       {:error, reason} ->
         {:error, reason}

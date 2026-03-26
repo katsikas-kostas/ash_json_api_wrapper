@@ -11,7 +11,19 @@ defmodule AshJsonApiWrapper.JsonApi.Transformers.WireManualActions do
   def transform(dsl_state) do
     base_url = Spark.Dsl.Extension.get_opt(dsl_state, [:json_api], :base_url)
     resource_path = Spark.Dsl.Extension.get_opt(dsl_state, [:json_api], :resource_path)
-    opts = [base_url: base_url, resource_path: resource_path]
+    entity_path = Spark.Dsl.Extension.get_opt(dsl_state, [:json_api], :entity_path)
+    case_convention = Spark.Dsl.Extension.get_opt(dsl_state, [:json_api], :case_convention)
+    sort_param = Spark.Dsl.Extension.get_opt(dsl_state, [:json_api], :sort_param)
+    field_mappings = Spark.Dsl.Transformer.get_entities(dsl_state, [:json_api])
+
+    opts = [
+      base_url: base_url,
+      resource_path: resource_path,
+      entity_path: entity_path,
+      case_convention: case_convention,
+      sort_param: sort_param || "sort",
+      field_mappings: field_mappings
+    ]
 
     actions = Spark.Dsl.Transformer.get_entities(dsl_state, [:actions])
     read_actions = Enum.filter(actions, &(&1.type == :read))
