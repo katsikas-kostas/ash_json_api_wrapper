@@ -172,4 +172,18 @@ defmodule AshJsonApiWrapper.ResponseMappingTest do
       assert user.display_name == "Alice"
     end
   end
+
+  describe "null values" do
+    test "explicit null in API response sets attribute to nil (not skipped)" do
+      id = Ash.UUID.generate()
+
+      Req.Test.stub(WrappedUser, fn conn ->
+        Req.Test.json(conn, %{"data" => [%{"id" => id, "name" => nil}]})
+      end)
+
+      assert {:ok, [user]} = Ash.read(WrappedUser)
+      assert user.id == id
+      assert user.name == nil
+    end
+  end
 end

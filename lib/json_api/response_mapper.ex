@@ -25,6 +25,15 @@ defmodule AshJsonApiWrapper.JsonApi.ResponseMapper do
   end
 
   @doc """
+  Extracts a single raw map from the response body using the configured entity_path.
+  If the extracted value is a list, returns the first element.
+  """
+  def extract_entity(body, entity_path) do
+    result = extract_entities(body, entity_path)
+    if is_list(result), do: List.first(result), else: result
+  end
+
+  @doc """
   Converts a raw API map into an Ash resource struct, applying field mappings and
   case convention transformation.
   """

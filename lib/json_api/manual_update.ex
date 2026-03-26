@@ -18,8 +18,7 @@ defmodule AshJsonApiWrapper.JsonApi.ManualUpdate do
 
     case AshJsonApiWrapper.JsonApi.Client.patch(url, attrs, resource) do
       {:ok, body} ->
-        entity = ResponseMapper.extract_entities(body, opts[:entity_path])
-        entity = if is_list(entity), do: List.first(entity), else: entity
+        entity = ResponseMapper.extract_entity(body, opts[:entity_path])
         {:ok, ResponseMapper.to_record(entity, resource, opts)}
 
       {:error, {:http_error, status, body}} ->
