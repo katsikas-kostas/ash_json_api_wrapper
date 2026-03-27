@@ -16,7 +16,7 @@ defmodule AshJsonApiWrapper.JsonApi.ManualUpdate do
     url = base_url <> resource_path <> "/#{id}"
     attrs = changeset.attributes
 
-    case AshJsonApiWrapper.JsonApi.Client.patch(url, attrs, resource) do
+    case AshJsonApiWrapper.JsonApi.Client.patch(url, attrs, resource, opts) do
       {:ok, body} ->
         entity = ResponseMapper.extract_entity(body, opts[:entity_path])
         {:ok, ResponseMapper.to_record(entity, resource, opts)}
