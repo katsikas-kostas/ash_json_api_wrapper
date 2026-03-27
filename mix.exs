@@ -142,6 +142,7 @@ defmodule AshJsonApiWrapper.MixProject do
     [
       {:ash, ash_version("~> 3.0")},
       {:req, "~> 0.5"},
+      {:cachex, "~> 4.1"},
       {:tesla, "~> 1.7"},
       {:exjsonpath, "~> 0.1"},
       # Dev/Test dependencies
@@ -154,6 +155,7 @@ defmodule AshJsonApiWrapper.MixProject do
       {:git_ops, "~> 2.5", only: :dev},
       {:mix_test_watch, "~> 1.0", only: :dev, runtime: false},
       {:parse_trans, "3.4.2", only: [:dev, :test], override: true},
+      {:splode, "~> 0.3", override: true},
       {:plug, "~> 1.0", only: :test},
       {:mox, "~> 1.0", only: :test},
       {:mix_audit, ">= 0.0.0", only: [:dev, :test], runtime: false}

@@ -18,6 +18,7 @@ defmodule AshJsonApiWrapper.JsonApi.ManualDestroy do
 
     case AshJsonApiWrapper.JsonApi.Client.delete(url, resource, opts) do
       :ok ->
+        if opts[:cache_ttl], do: AshJsonApiWrapper.JsonApi.Cache.flush(resource)
         {:ok, record}
 
       {:error, {:http_error, status, body}} ->

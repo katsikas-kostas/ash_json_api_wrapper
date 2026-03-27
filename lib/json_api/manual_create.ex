@@ -17,6 +17,7 @@ defmodule AshJsonApiWrapper.JsonApi.ManualCreate do
 
     case AshJsonApiWrapper.JsonApi.Client.post(url, attrs, resource, opts) do
       {:ok, body} ->
+        if opts[:cache_ttl], do: AshJsonApiWrapper.JsonApi.Cache.flush(resource)
         entity = ResponseMapper.extract_entity(body, opts[:entity_path])
         {:ok, ResponseMapper.to_record(entity, resource, opts)}
 
