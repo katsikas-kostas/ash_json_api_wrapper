@@ -62,9 +62,10 @@ defmodule AshJsonApiWrapper.JsonApi.Cache do
   end
 
   @doc """
-  Derives a stable cache key from the query's action, filter params, sort params, and limit.
+  Derives a cache key from the query's action, filter params, sort params, and limit.
+  Uses a direct tuple to avoid hash collisions.
   """
   def derive_key(resource, action_name, filter_params, sort_params, limit) do
-    :erlang.phash2({resource, action_name, filter_params, sort_params, limit})
+    {resource, action_name, filter_params, sort_params, limit}
   end
 end

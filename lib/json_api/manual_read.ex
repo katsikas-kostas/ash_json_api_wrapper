@@ -43,9 +43,8 @@ defmodule AshJsonApiWrapper.JsonApi.ManualRead do
         {:ok, records} ->
           finish(records, resource, opts, runtime_filters, limit)
 
-        _ ->
-          result = do_read(base_url_with_path, base_query_params, resource, method, opts, limit)
-          handle_read_result(result, resource, opts, runtime_filters, limit)
+        {:error, reason} ->
+          {:error, reason}
       end
     else
       result = do_read(base_url_with_path, base_query_params, resource, method, opts, limit)
@@ -82,8 +81,6 @@ defmodule AshJsonApiWrapper.JsonApi.ManualRead do
   defp handle_error({:error, {:http_error, status, body}}), do: {:error, ErrorMapper.to_error(status, body)}
   defp handle_error({:error, reason}), do: {:error, reason}
 
-  # --- Single page fetch ---
-
   defp fetch_single(url, _query_params, resource, :get, opts) do
     case AshJsonApiWrapper.JsonApi.Client.get(url, resource, opts) do
       {:ok, body} -> {:ok, ResponseMapper.extract_entities(body, opts[:entity_path])}
@@ -98,21 +95,19 @@ defmodule AshJsonApiWrapper.JsonApi.ManualRead do
     end
   end
 
-  # --- Paginated fetch ---
-
   defp fetch_paginated(base_url, base_query_params, resource, method, opts, paginator_ref, limit) do
     {mod, pag_opts} = normalize_paginator(paginator_ref)
 
     case mod.start(pag_opts) do
       {:ok, state} ->
-        do_fetch_pages(base_url, base_query_params, resource, method, opts, mod, pag_opts, state, [], limit)
+        do_fetch_pages(base_url, base_query_params, resource, method, opts, mod, pag_opts, state, [], 0, limit)
 
       error ->
         error
     end
   end
 
-  defp do_fetch_pages(base_url, base_query_params, resource, method, opts, mod, pag_opts, state, acc, limit) do
+  defp do_fetch_pages(base_url, base_query_params, resource, method, opts, mod, pag_opts, state, acc, acc_count, limit) do
     page_params = Map.merge(base_query_params, Map.get(state, :params, %{}))
     url = append_query_params(base_url, page_params, method)
 
@@ -125,21 +120,21 @@ defmodule AshJsonApiWrapper.JsonApi.ManualRead do
     case result do
       {:ok, body} ->
         entities = ResponseMapper.extract_entities(body, opts[:entity_path])
-        page_records = ensure_list(entities)
-        all_records = acc ++ page_records
+        page_records = List.wrap(entities)
+        new_count = acc_count + length(page_records)
+        new_acc = [page_records | acc]
 
-        # Stop if Ash limit is satisfied
-        if limit && length(all_records) >= limit do
-          {:ok, all_records}
+        if limit && new_count >= limit do
+          {:ok, Enum.concat(Enum.reverse(new_acc))}
         else
-          pag_opts_with_state = Keyword.put(pag_opts, :accumulated_count, length(all_records))
+          pag_opts_with_state = Keyword.put(pag_opts, :accumulated_count, new_count)
 
           case mod.continue(body, page_records, pag_opts_with_state) do
             :halt ->
-              {:ok, all_records}
+              {:ok, Enum.concat(Enum.reverse(new_acc))}
 
             {:ok, next_state} ->
-              do_fetch_pages(base_url, base_query_params, resource, method, opts, mod, pag_opts, next_state, all_records, limit)
+              do_fetch_pages(base_url, base_query_params, resource, method, opts, mod, pag_opts, next_state, new_acc, new_count, limit)
           end
         end
 
@@ -147,8 +142,6 @@ defmodule AshJsonApiWrapper.JsonApi.ManualRead do
         error
     end
   end
-
-  # --- URL helpers ---
 
   defp build_base_url(base_url, resource_path, query, override) do
     path = (override && override.path) || resource_path
@@ -174,10 +167,6 @@ defmodule AshJsonApiWrapper.JsonApi.ManualRead do
 
   defp normalize_paginator({mod, opts}) when is_atom(mod), do: {mod, opts}
   defp normalize_paginator(mod) when is_atom(mod), do: {mod, []}
-
-  defp ensure_list(list) when is_list(list), do: list
-  defp ensure_list(item) when is_map(item), do: [item]
-  defp ensure_list(_), do: []
 
   defp find_override(overrides, action_name) do
     Enum.find(overrides, &(&1.name == action_name))
