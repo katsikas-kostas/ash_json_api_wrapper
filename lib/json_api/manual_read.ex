@@ -84,7 +84,7 @@ defmodule AshJsonApiWrapper.JsonApi.ManualRead do
 
   # --- Single page fetch ---
 
-  defp fetch_single(url, query_params, resource, :get, opts) do
+  defp fetch_single(url, _query_params, resource, :get, opts) do
     case AshJsonApiWrapper.JsonApi.Client.get(url, resource, opts) do
       {:ok, body} -> {:ok, ResponseMapper.extract_entities(body, opts[:entity_path])}
       error -> error
