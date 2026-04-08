@@ -117,6 +117,16 @@ defmodule AshJsonApiWrapper.JsonApi do
         required: false,
         doc: "Module implementing `AshJsonApiWrapper.JsonApi.Auth` for credential injection."
       ],
+      paginator: [
+        type: :any,
+        required: false,
+        doc: "Paginator as `{module, opts}` tuple or bare module. e.g. `{AshJsonApiWrapper.Paginator.OffsetLimit, page_size: 25}`."
+      ],
+      cache_ttl: [
+        type: :integer,
+        required: false,
+        doc: "Cache TTL in milliseconds. When set, read results are cached and writes invalidate the cache."
+      ],
       before_request: [
         type: {:list, :any},
         required: false,

@@ -17,6 +17,8 @@ defmodule AshJsonApiWrapper.JsonApi.Transformers.WireManualActions do
     auth = Spark.Dsl.Extension.get_opt(dsl_state, [:json_api], :auth)
     before_request = Spark.Dsl.Extension.get_opt(dsl_state, [:json_api], :before_request)
     after_response = Spark.Dsl.Extension.get_opt(dsl_state, [:json_api], :after_response)
+    paginator = Spark.Dsl.Extension.get_opt(dsl_state, [:json_api], :paginator)
+    cache_ttl = Spark.Dsl.Extension.get_opt(dsl_state, [:json_api], :cache_ttl)
 
     all_entities = Spark.Dsl.Transformer.get_entities(dsl_state, [:json_api])
     field_mappings = Enum.filter(all_entities, &is_struct(&1, AshJsonApiWrapper.JsonApi.FieldMapping))
@@ -32,7 +34,9 @@ defmodule AshJsonApiWrapper.JsonApi.Transformers.WireManualActions do
       action_overrides: action_overrides,
       auth: auth,
       before_request: before_request || [],
-      after_response: after_response || []
+      after_response: after_response || [],
+      paginator: paginator,
+      cache_ttl: cache_ttl
     ]
 
     actions = Spark.Dsl.Transformer.get_entities(dsl_state, [:actions])
